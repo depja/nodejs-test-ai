@@ -429,6 +429,9 @@ let teleportConfirmed = false
 let groundY = null
 let lastPositionPacket = null
 let authSent = false
+let authInProgress = false
+let playKitsSent = false
+let playKitsTimeout = null
 
 function formatKickReason (node) {
   if (!node) return 'Unknown reason'
@@ -465,11 +468,34 @@ function stopActions () {
     clearInterval(keepAliveHeartbeat)
     keepAliveHeartbeat = null
   }
+  if (playKitsTimeout) {
+    clearTimeout(playKitsTimeout)
+    playKitsTimeout = null
+  }
   if (bot) {
     try {
       bot.clearControlStates()
     } catch {}
   }
+}
+
+function schedulePlayKits (delay = 5000) {
+  if (!bot || !hasSpawned || playKitsSent || authInProgress) return
+  if (playKitsTimeout) clearTimeout(playKitsTimeout)
+
+  const currentBot = bot
+  playKitsTimeout = setTimeout(() => {
+    playKitsTimeout = null
+    if (bot !== currentBot || !isOnServer || playKitsSent || authInProgress) return
+
+    try {
+      currentBot.chat('/play kits')
+      playKitsSent = true
+      console.log('[World] Sent /play kits')
+    } catch (err) {
+      console.error('[World] Could not send /play kits:', err.message || err)
+    }
+  }, delay)
 }
 
 function cleanupBot () {
@@ -539,6 +565,8 @@ function startBot () {
   groundY = null
   lastPositionPacket = null
   authSent = false
+  authInProgress = false
+  playKitsSent = false
 
   console.log(`[Connecting] Attempting to join ${config.host}:${config.port} as ${config.username} (version ${config.version})...`)
 
@@ -733,6 +761,9 @@ function startBot () {
       // Maintain network heartbeat without any physical movement
       startActiveHeartbeat()
     }
+
+    // Wait for the hub to settle; only send once so the Kits spawn will not repeat it.
+    schedulePlayKits()
   })
 
   bot.on('messagestr', (msg, position) => {
@@ -750,19 +781,43 @@ function startBot () {
       const regMatch = clean.match(/\/register\s+password\s+password\s+(\S+)/i)
       if (regMatch) {
         authSent = true
+        authInProgress = true
+        if (playKitsTimeout) {
+          clearTimeout(playKitsTimeout)
+          playKitsTimeout = null
+        }
         const captcha = regMatch[1]
+        const currentBot = bot
         setTimeout(() => {
-          if (bot) {
+          if (bot === currentBot) {
             console.log(`[Auth] Registering with captcha ${captcha}...`)
-            bot.chat(`/register ${config.password} ${config.password} ${captcha}`)
+            try {
+              currentBot.chat(`/register ${config.password} ${config.password} ${captcha}`)
+              authInProgress = false
+              schedulePlayKits(3000)
+            } catch (err) {
+              console.error('[Auth] Registration command failed:', err.message || err)
+            }
           }
         }, 1000)
       } else if (/\/login\s+password/i.test(clean)) {
         authSent = true
+        authInProgress = true
+        if (playKitsTimeout) {
+          clearTimeout(playKitsTimeout)
+          playKitsTimeout = null
+        }
+        const currentBot = bot
         setTimeout(() => {
-          if (bot) {
+          if (bot === currentBot) {
             console.log('[Auth] Logging in...')
-            bot.chat(`/login ${config.password}`)
+            try {
+              currentBot.chat(`/login ${config.password}`)
+              authInProgress = false
+              schedulePlayKits(3000)
+            } catch (err) {
+              console.error('[Auth] Login command failed:', err.message || err)
+            }
           }
         }, 1000)
       }
