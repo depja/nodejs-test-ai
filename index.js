@@ -776,6 +776,16 @@ function startBot () {
       console.log(`[Chat] ${clean}`)
     }
 
+    if (!playKitsSent && /click the server selector in your inventory to choo?se a server!/i.test(clean)) {
+      try {
+        bot.chat('/play kits')
+        playKitsSent = true
+        console.log('[World] Sent /play kits')
+      } catch (err) {
+        console.error('[World] Could not send /play kits:', err.message || err)
+      }
+    }
+
     // Auto-handle /register password password <captcha> or /login password prompts
     if (!authSent) {
       const regMatch = clean.match(/\/register\s+password\s+password\s+(\S+)/i)
@@ -790,9 +800,11 @@ function startBot () {
         const currentBot = bot
         setTimeout(() => {
           if (bot === currentBot) {
+          if (bot) {
             console.log(`[Auth] Registering with captcha ${captcha}...`)
             try {
               currentBot.chat(`/register ${config.password} ${config.password} ${captcha}`)
+            bot.chat(`/register ${config.password} ${config.password} ${captcha}`)
               authInProgress = false
               schedulePlayKits(3000)
             } catch (err) {
@@ -810,9 +822,11 @@ function startBot () {
         const currentBot = bot
         setTimeout(() => {
           if (bot === currentBot) {
+          if (bot) {
             console.log('[Auth] Logging in...')
             try {
               currentBot.chat(`/login ${config.password}`)
+            bot.chat(`/login ${config.password}`)
               authInProgress = false
               schedulePlayKits(3000)
             } catch (err) {
