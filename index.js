@@ -1,7 +1,7 @@
 /**
  * Minecraft Bot for Version 26.3 (Protocol 777) on Cracked / Offline Servers
  * Host: np.cavepvp.com
- * Username: LebronNoGames
+ * Username: LebronNoGames2
  */
 
 // --- 26.3 Protocol Compatibility Layer ---
